@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@sqlite.org/sqlite-wasm": "^3.47.0-build1",
     "@vercel/postgres": "^0.7.2",
     "axios": "^1.6.7",
     "bcryptjs": "^2.4.3",
