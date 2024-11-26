@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { authService } from '../services/api';
 
 interface Subscription {
+  id: string;
   plan: 'starter' | 'pro' | 'enterprise';
   status: 'active' | 'cancelled' | 'expired';
   expiresAt: string;
@@ -15,19 +17,14 @@ interface AuthState {
     name: string;
   } | null;
   subscription: Subscription | null;
+  token: string | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: Partial<AuthState['user']>) => void;
   updateSubscription: (subscription: Subscription) => void;
+  setToken: (token: string) => void;
 }
-
-// For demo purposes, we'll use a simplified auth
-const DEMO_USER = {
-  id: '1',
-  email: 'demo@example.com',
-  name: 'Demo User'
-};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -35,43 +32,42 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       user: null,
       subscription: null,
+      token: null,
       login: async (email: string, password: string) => {
-        // Demo login - in production, this would validate against a backend
-        if (email === DEMO_USER.email && password === 'demo123') {
+        try {
+          const { token, user, subscription } = await authService.login(email, password);
           set({ 
             isAuthenticated: true,
-            user: DEMO_USER,
-            subscription: {
-              plan: 'pro',
-              status: 'active',
-              expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-            }
+            user,
+            subscription,
+            token
           });
-        } else {
+          localStorage.setItem('auth_token', token);
+        } catch (error) {
           throw new Error('Invalid credentials');
         }
       },
       signup: async (email: string, password: string, name: string) => {
-        // Demo signup - in production, this would create a user in the backend
-        set({ 
-          isAuthenticated: true,
-          user: {
-            id: Math.random().toString(36).substr(2, 9),
-            email,
-            name
-          },
-          subscription: {
-            plan: 'starter',
-            status: 'active',
-            expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-          }
-        });
+        try {
+          const { token, user, subscription } = await authService.signup(email, password, name);
+          set({ 
+            isAuthenticated: true,
+            user,
+            subscription,
+            token
+          });
+          localStorage.setItem('auth_token', token);
+        } catch (error) {
+          throw new Error('Signup failed');
+        }
       },
       logout: () => {
+        localStorage.removeItem('auth_token');
         set({ 
           isAuthenticated: false, 
           user: null,
-          subscription: null
+          subscription: null,
+          token: null
         });
       },
       updateUser: (userData) => {
@@ -81,6 +77,10 @@ export const useAuthStore = create<AuthState>()(
       },
       updateSubscription: (subscription) => {
         set({ subscription });
+      },
+      setToken: (token) => {
+        set({ token });
+        localStorage.setItem('auth_token', token);
       }
     }),
     {
@@ -88,8 +88,15 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({ 
         isAuthenticated: state.isAuthenticated,
         user: state.user,
-        subscription: state.subscription
+        subscription: state.subscription,
+        token: state.token
       })
     }
   )
 );
+
+// Initialize token from localStorage
+const token = localStorage.getItem('auth_token');
+if (token) {
+  useAuthStore.getState().setToken(token);
+}
