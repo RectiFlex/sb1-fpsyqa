@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useAuthStore } from './store/authStore';
+import { Analytics } from "@vercel/analytics/react";
 
 // Implement code splitting with lazy loading
 const LandingPage = lazy(() => import('./pages/LandingPage'));
