@@ -1,15 +1,10 @@
 // api/ai/chat.ts
 import OpenAI from 'openai';
-import { OpenAIStream, StreamingTextResponse } from 'ai';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
-
-export const config = {
-  runtime: 'edge',
-};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -17,9 +12,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    // Set headers for streaming
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
     const { messages } = await req.json();
 
-    const response = await openai.chat.completions.create({
+    const stream = await openai.chat.completions.create({
       model: 'gpt-4-0125-preview',
       messages: [
         {
@@ -33,11 +33,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       max_tokens: 1000
     });
 
-    const stream = OpenAIStream(response);
-    return new StreamingTextResponse(stream);
+    // Stream the responses
+    for await (const part of stream) {
+      const chunk = part.choices[0]?.delta?.content || '';
+      res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+    }
+
+    res.end();
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Chat API error:', error);
-    return res.status(500).json({ error: 'Failed to process chat request' });
+    
+    if (error.response) {
+      res.status(error.response.status).json({ 
+        error: error.response.data?.error?.message || 'OpenAI API error'
+      });
+    } else {
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 }
