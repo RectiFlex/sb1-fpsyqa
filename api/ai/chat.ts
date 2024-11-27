@@ -11,15 +11,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Enable streaming
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
   try {
-    // Set headers for streaming
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    // Parse the request body
+    let messages;
+    if (typeof req.body === 'string') {
+      messages = JSON.parse(req.body).messages;
+    } else {
+      messages = req.body.messages;
+    }
 
-    const { messages } = await req.json();
+    if (!messages) {
+      throw new Error('No messages provided');
+    }
 
-    const stream = await openai.chat.completions.create({
+    const completion = await openai.chat.completions.create({
       model: 'gpt-4-0125-preview',
       messages: [
         {
@@ -33,23 +44,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       max_tokens: 1000
     });
 
-    // Stream the responses
-    for await (const part of stream) {
-      const chunk = part.choices[0]?.delta?.content || '';
-      res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+    // Stream each chunk of the response
+    for await (const chunk of completion) {
+      const content = chunk.choices[0]?.delta?.content || '';
+      if (content) {
+        res.write(`data: ${JSON.stringify({ content })}\n\n`);
+      }
     }
 
+    res.write('data: [DONE]\n\n');
     res.end();
-    
+
   } catch (error: any) {
     console.error('Chat API error:', error);
-    
-    if (error.response) {
-      res.status(error.response.status).json({ 
-        error: error.response.data?.error?.message || 'OpenAI API error'
-      });
-    } else {
-      res.status(500).json({ error: 'Internal server error' });
-    }
+    res.write(`data: ${JSON.stringify({ error: error.message || 'An error occurred' })}\n\n`);
+    res.end();
   }
 }
