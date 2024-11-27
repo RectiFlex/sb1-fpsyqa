@@ -42,6 +42,7 @@ const marketSizes = [
 function IdeaGenerator() {
   const { token } = useAuthStore();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<IdeaFormData>({
     industry: '',
     targetMarket: '',
@@ -60,28 +61,54 @@ function IdeaGenerator() {
   };
 
   const generateIdea = async () => {
+    if (!token) {
+      setError('Authentication required');
+      return;
+    }
+
     setIsGenerating(true);
+    setError(null);
+
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 1 minute timeout
+
       const response = await fetch('/api/ai/generate-idea', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error('Failed to generate idea');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate idea');
       }
 
       const data = await response.json();
       setGeneratedIdea(data);
     } catch (error) {
       console.error('Idea generation error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to generate idea');
+
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setError('Request timed out. Please try again.');
+      }
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const isFormValid = () => {
+    return formData.industry && 
+           formData.targetMarket && 
+           formData.technology.length > 0 && 
+           formData.problemSpace.trim().length > 0;
   };
 
   return (
@@ -89,6 +116,12 @@ function IdeaGenerator() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">AI Startup Idea Generator</h2>
       </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/50 text-red-500 px-4 py-2 rounded-lg">
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Input Form */}
@@ -128,6 +161,7 @@ function IdeaGenerator() {
                 <button
                   key={tech}
                   onClick={() => handleTechnologyToggle(tech)}
+                  type="button"
                   className={`px-3 py-2 rounded-lg text-sm flex items-center justify-between ${
                     formData.technology.includes(tech)
                       ? 'bg-blue-600 hover:bg-blue-700'
@@ -149,13 +183,13 @@ function IdeaGenerator() {
               value={formData.problemSpace}
               onChange={(e) => setFormData(prev => ({ ...prev, problemSpace: e.target.value }))}
               placeholder="Describe the problem your startup should solve..."
-              className="w-full bg-gray-700 rounded-lg px-4 py-2 min-h-[100px]"
+              className="w-full bg-gray-700 rounded-lg px-4 py-2 min-h-[100px] resize-y"
             />
           </div>
 
           <button
             onClick={generateIdea}
-            disabled={isGenerating}
+            disabled={isGenerating || !isFormValid()}
             className="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? (
