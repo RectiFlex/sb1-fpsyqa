@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
@@ -17,6 +18,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const [loading, setLoading] = useState(false);
 
   const { login, signup } = useAuthStore();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,15 +28,30 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     try {
       if (isSignup) {
         await signup(email, password, name);
+        navigate('/subscribe'); // Redirect to paywall after signup
       } else {
         await login(email, password);
+        const subscription = useAuthStore.getState().subscription;
+        
+        if (!subscription || subscription.status !== 'active') {
+          navigate('/subscribe'); // Redirect to paywall if no active subscription
+        } else {
+          onSuccess(); // Proceed to dashboard if subscription is active
+        }
       }
-      onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setEmail('');
+    setPassword('');
+    setName('');
+    setError('');
+    setLoading(false);
   };
 
   if (!isOpen) return null;
@@ -43,7 +60,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="relative w-full max-w-md p-6 bg-gray-800 rounded-xl shadow-xl">
         <button
-          onClick={onClose}
+          onClick={() => {
+            onClose();
+            resetForm();
+          }}
           className="absolute top-4 right-4 text-gray-400 hover:text-white"
         >
           <X className="h-6 w-6" />
@@ -139,6 +159,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               onClick={() => {
                 setIsSignup(!isSignup);
                 setError('');
+                resetForm();
               }}
               className="text-blue-400 hover:text-blue-300"
             >
