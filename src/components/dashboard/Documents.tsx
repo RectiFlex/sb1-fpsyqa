@@ -69,7 +69,7 @@ function Documents() {
     tone: 'professional'
   });
 
-  const generateDocument = async () => {
+const generateDocument = async (retries = 3) => {
     setIsGenerating(true);
     try {
       const response = await fetch('/api/ai/generate-document', {
@@ -256,7 +256,7 @@ function Documents() {
               Cancel
             </button>
             <button
-              onClick={generateDocument}
+              onClick={() => generateDocument()}
               disabled={isGenerating}
               className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
             >

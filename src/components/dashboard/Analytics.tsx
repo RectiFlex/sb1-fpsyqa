@@ -28,7 +28,6 @@ export default function Analytics() {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [generations, setGenerations] = useState<Generation[]>([]);
-
   const [usageData, setUsageData] = useState<any[]>([]);
   const [newGeneration, setNewGeneration] = useState<Generation>({
     id: '',
@@ -41,7 +40,10 @@ export default function Analytics() {
   // Fetch real data from API
   const fetchUsageData = async () => {
     try {
-      const response = await fetch('/api/usage-data'); // Adjust the endpoint as necessary
+      const response = await fetch('/api/usage-data');
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
       const data = await response.json();
       setUsageData(data);
     } catch (error) {
@@ -63,12 +65,37 @@ export default function Analytics() {
     e.preventDefault();
     const newGeneration: Generation = {
       id: Date.now().toString(),
-      type: 'idea', // This can be dynamic based on user input
-      title: 'New Generation', // This can be dynamic based on user input
+      type: newGeneration.type, // Use the selected type from the form
+      title: newGeneration.title, // Use the title from the form
       timestamp: new Date(),
-      category: 'General' // This can be dynamic based on user input
+      category: newGeneration.category // Use the category from the form
     };
-    handleAddGeneration(newGeneration);
+
+    // Send the new generation data to the server for document generation
+    if (newGeneration.type === 'document') {
+      fetch('/api/generate-document', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newGeneration),
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Failed to generate document');
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('Document generated:', data);
+          handleAddGeneration(newGeneration); // Add to local state
+        })
+        .catch(error => {
+          console.error('Error generating document:', error);
+        });
+    } else {
+      handleAddGeneration(newGeneration); // Add to local state for other types
+    }
   };
 
   const handleSaveCompanyInfo = () => {
