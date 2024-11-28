@@ -69,14 +69,10 @@ function Documents() {
     tone: 'professional'
   });
 
-const generateDocument = async (retries = 3) => {
+  const generateDocument = async (retries = 3) => {
     setIsGenerating(true);
     try {
-      console.log('Request Payload:', JSON.stringify(formData)); // Log the request payload
-      const response = await fetch('/api/ai/generate-document', { 
-      });
-      console.log('Response Status:', response.status); // Log the response status
-      console.log('Response Status:', response.status); // Log the response status
+      const response = await fetch('/api/ai/generate-document', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -130,12 +126,12 @@ const generateDocument = async (retries = 3) => {
   const downloadDocument = (doc: Document) => {
     const blob = new Blob([doc.content], { type: 'text/plain' });
     const url = window.URL.createObjectURL(blob);
-    const link = window.document.createElement('a');
+    const link = document.createElement('a');
     link.href = url;
     link.download = `${doc.title}.txt`;
-    window.document.body.appendChild(link);
+    document.body.appendChild(link);
     link.click();
-    window.document.body.removeChild(link);
+    document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   };
 
