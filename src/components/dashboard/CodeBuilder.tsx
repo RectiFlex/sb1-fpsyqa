@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { Code, Loader, CheckCircle, Copy, Download } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Code, Loader, CheckCircle, Copy, Download, Play, Terminal as TerminalIcon } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { Terminal } from './Terminal';
+import { Terminal as XTerm } from 'xterm';
+import { initWebContainer, writeFiles, installDependencies, startDevServer, createFileTree } from '../../services/webcontainer';
 
 interface Template {
   id: string;
@@ -16,6 +19,7 @@ interface CodeOutput {
   dependencies: string[];
   setup: string[];
   documentation: string;
+  files?: Record<string, string>;
 }
 
 const templates: Template[] = [
@@ -52,8 +56,11 @@ function CodeBuilder() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<CodeOutput | null>(null);
   const [streamedContent, setStreamedContent] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'code' | 'setup' | 'docs'>('code');
+  const [activeTab, setActiveTab] = useState<'code' | 'setup' | 'docs' | 'preview'>('code');
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
+  const terminalRef = useRef<XTerm | null>(null);
 
   const generateCode = async () => {
     if (!selectedTemplate) return;
@@ -142,19 +149,68 @@ function CodeBuilder() {
     URL.revokeObjectURL(url);
   };
 
+  const handleTerminalReady = (terminal: XTerm) => {
+    terminalRef.current = terminal;
+  };
+
+  const runCode = async () => {
+    if (!generatedCode || !terminalRef.current) return;
+    
+    setIsRunning(true);
+    try {
+      // Initialize WebContainer
+      await initWebContainer();
+
+      // Create and write files
+      const fileTree = createFileTree(generatedCode);
+      await writeFiles(fileTree);
+
+      // Install dependencies
+      await installDependencies(terminalRef.current);
+
+      // Start dev server
+      const { url } = await startDevServer(terminalRef.current);
+      setPreviewUrl(url);
+      setActiveTab('preview');
+    } catch (error) {
+      console.error('Error running code:', error);
+      if (terminalRef.current) {
+        terminalRef.current.write('\r\n\x1b[31mError running code. Check console for details.\x1b[0m\r\n');
+      }
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">AI Code Builder</h2>
-        {generatedCode && (
-          <button
-            onClick={downloadCode}
-            className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg"
-          >
-            <Download className="h-5 w-5 mr-2" />
-            Download Code
-          </button>
-        )}
+        <div className="flex gap-2">
+          {generatedCode && (
+            <>
+              <button
+                onClick={downloadCode}
+                className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg"
+              >
+                <Download className="h-5 w-5 mr-2" />
+                Download Code
+              </button>
+              <button
+                onClick={runCode}
+                disabled={isRunning}
+                className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
+              >
+                {isRunning ? (
+                  <Loader className="h-5 w-5 mr-2 animate-spin" />
+                ) : (
+                  <Play className="h-5 w-5 mr-2" />
+                )}
+                Run Code
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -260,6 +316,16 @@ function CodeBuilder() {
                 >
                   Documentation
                 </button>
+                {previewUrl && (
+                  <button
+                    onClick={() => setActiveTab('preview')}
+                    className={`px-4 py-2 ${
+                      activeTab === 'preview' ? 'bg-gray-700 text-white' : 'text-gray-400'
+                    }`}
+                  >
+                    Preview
+                  </button>
+                )}
               </div>
             </div>
 
@@ -300,12 +366,23 @@ function CodeBuilder() {
                       ))}
                     </ol>
                   </div>
+                  <Terminal onReady={handleTerminalReady} className="mt-4" />
                 </div>
               )}
 
               {activeTab === 'docs' && generatedCode && (
                 <div className="prose prose-invert max-w-none">
                   <div dangerouslySetInnerHTML={{ __html: generatedCode.documentation }} />
+                </div>
+              )}
+
+              {activeTab === 'preview' && previewUrl && (
+                <div className="h-[600px] bg-white rounded-lg overflow-hidden">
+                  <iframe
+                    src={previewUrl}
+                    className="w-full h-full border-0"
+                    title="Preview"
+                  />
                 </div>
               )}
             </div>
