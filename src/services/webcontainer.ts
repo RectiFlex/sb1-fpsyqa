@@ -8,10 +8,15 @@ interface ServerProcess {
 }
 
 export async function initWebContainer() {
-  if (!webcontainerInstance) {
-    webcontainerInstance = await WebContainer.boot();
+  try {
+    if (!webcontainerInstance) {
+      webcontainerInstance = await WebContainer.boot();
+    }
+    return webcontainerInstance;
+  } catch (error) {
+    console.error('WebContainer initialization failed:', error);
+    throw new Error('WebContainer initialization failed. Please ensure your browser supports the required features.');
   }
-  return webcontainerInstance;
 }
 
 export async function writeFiles(files: Record<string, any>) {
@@ -65,19 +70,6 @@ export async function startDevServer(terminal: any): Promise<ServerProcess> {
 
     serverProcess.output.tee()[1].pipeTo(checkOutput);
   });
-}
-
-// In src/services/webcontainer.ts
-export async function initWebContainer() {
-  try {
-    if (!webcontainerInstance) {
-      webcontainerInstance = await WebContainer.boot();
-    }
-    return webcontainerInstance;
-  } catch (error) {
-    console.error('WebContainer initialization failed:', error);
-    throw new Error('WebContainer initialization failed. Please ensure your browser supports the required features.');
-  }
 }
 
 export async function executeCommand(command: string, args: string[], terminal: any) {
