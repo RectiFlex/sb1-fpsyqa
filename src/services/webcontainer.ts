@@ -52,8 +52,10 @@ export async function startDevServer(terminal: any): Promise<ServerProcess> {
     const checkOutput = new WritableStream({
       write(data) {
         const output = data.toString();
-        if (output.includes('Local:')) {
-          url = output.match(/Local:\s*(http:\/\/localhost:\d+)/)?.[1] || '';
+        // Look for both localhost and 0.0.0.0
+        const match = output.match(/(?:Local|Network):\s*(http:\/\/(?:localhost|0\.0\.0\.0):\d+)/);
+        if (match && !url) {
+          url = match[1].replace('0.0.0.0', 'localhost');
           if (url) {
             resolve({ url, process: serverProcess });
           }
@@ -88,7 +90,7 @@ export function createFileTree(generatedCode: any) {
           name: 'web-app',
           type: 'module',
           scripts: {
-            dev: 'vite',
+            dev: 'vite --port 5173 --host',
             build: 'vite build',
             preview: 'vite preview'
           },
@@ -111,6 +113,11 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    host: true,
+    strictPort: true,
+    port: 5173
+  }
 });`
       }
     },

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Code, Loader, CheckCircle, Copy, Download, Play, Terminal as TerminalIcon } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { Terminal } from './Terminal';
@@ -60,7 +60,22 @@ function CodeBuilder() {
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [previewError, setPreviewError] = useState<string>('');
   const terminalRef = useRef<XTerm | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    // Initialize WebContainer when component mounts
+    const init = async () => {
+      try {
+        await initWebContainer();
+      } catch (error) {
+        console.error('Failed to initialize WebContainer:', error);
+        setPreviewError('Failed to initialize WebContainer. Please ensure your browser supports the required features.');
+      }
+    };
+    init();
+  }, []);
 
   const generateCode = async () => {
     if (!selectedTemplate) return;
@@ -130,9 +145,13 @@ function CodeBuilder() {
   };
 
   const copyToClipboard = async (text: string, section: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopiedSection(section);
-    setTimeout(() => setCopiedSection(null), 2000);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedSection(section);
+      setTimeout(() => setCopiedSection(null), 2000);
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+    }
   };
 
   const downloadCode = () => {
@@ -151,29 +170,34 @@ function CodeBuilder() {
 
   const handleTerminalReady = (terminal: XTerm) => {
     terminalRef.current = terminal;
+    terminal.write('\x1b[33mTerminal ready. Click "Run Code" to start the application.\x1b[0m\r\n');
   };
 
   const runCode = async () => {
     if (!generatedCode || !terminalRef.current) return;
     
     setIsRunning(true);
+    setPreviewError('');
+    setPreviewUrl('');
+    
     try {
-      // Initialize WebContainer
-      await initWebContainer();
-
       // Create and write files
       const fileTree = createFileTree(generatedCode);
       await writeFiles(fileTree);
 
       // Install dependencies
+      terminalRef.current.write('\x1b[33mInstalling dependencies...\x1b[0m\r\n');
       await installDependencies(terminalRef.current);
-
+      
       // Start dev server
+      terminalRef.current.write('\x1b[33mStarting development server...\x1b[0m\r\n');
       const { url } = await startDevServer(terminalRef.current);
+      
       setPreviewUrl(url);
       setActiveTab('preview');
     } catch (error) {
       console.error('Error running code:', error);
+      setPreviewError('Failed to run the application. Check the terminal for details.');
       if (terminalRef.current) {
         terminalRef.current.write('\r\n\x1b[31mError running code. Check console for details.\x1b[0m\r\n');
       }
@@ -376,13 +400,25 @@ function CodeBuilder() {
                 </div>
               )}
 
-              {activeTab === 'preview' && previewUrl && (
-                <div className="h-[600px] bg-white rounded-lg overflow-hidden">
-                  <iframe
-                    src={previewUrl}
-                    className="w-full h-full border-0"
-                    title="Preview"
-                  />
+              {activeTab === 'preview' && (
+                <div className="space-y-4">
+                  {previewError && (
+                    <div className="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded">
+                      {previewError}
+                    </div>
+                  )}
+                  {previewUrl && (
+                    <div className="h-[600px] bg-white rounded-lg overflow-hidden">
+                      <iframe
+                        ref={iframeRef}
+                        src={previewUrl}
+                        className="w-full h-full border-0"
+                        title="Preview"
+                        sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                        allow="cross-origin-isolated"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

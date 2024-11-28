@@ -1,1 +1,0 @@
-import{u as t,j as e}from"./index-Bku-Ump2.js";import{e as r,N as s}from"./react-vendor-U7tk92JR.js";import"./state-vendor-gNyJUM8p.js";function o({children:o}){const{isAuthenticated:a,subscription:i}=t(),n=r();return a&&!i?e.jsx(s,{to:"/#pricing",state:{from:n},replace:!0}):a?e.jsx(e.Fragment,{children:o}):e.jsx(s,{to:"/",state:{from:n},replace:!0})}export{o as default};
