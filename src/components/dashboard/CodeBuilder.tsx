@@ -1,4 +1,3 @@
-// src/components/dashboard/CodeBuilder.tsx
 import React, { useState } from 'react';
 import { Code, Loader, CheckCircle, Copy, Download } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -52,6 +51,7 @@ function CodeBuilder() {
   const [customFeatures, setCustomFeatures] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<CodeOutput | null>(null);
+  const [streamedContent, setStreamedContent] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'code' | 'setup' | 'docs'>('code');
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
 
@@ -59,6 +59,8 @@ function CodeBuilder() {
     if (!selectedTemplate) return;
     
     setIsGenerating(true);
+    setStreamedContent('');
+    
     try {
       const response = await fetch('/api/ai/generate-code', {
         method: 'POST',
@@ -83,13 +85,41 @@ function CodeBuilder() {
         throw new Error('Failed to generate code');
       }
 
-      const data = await response.json();
-      setGeneratedCode(data);
+      if (!response.body) {
+        throw new Error('No response body');
+      }
+
+      // Handle streaming response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        setStreamedContent(prev => prev + chunk);
+      }
+
+      // Parse the complete streamed content
+      const parsedContent = parseStreamedContent(streamedContent);
+      setGeneratedCode(parsedContent);
     } catch (error) {
       console.error('Code generation error:', error);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const parseStreamedContent = (content: string): CodeOutput => {
+    // Split content into sections based on markers in the streamed response
+    const sections = content.split('###');
+    return {
+      code: sections[0] || '',
+      dependencies: (sections[1] || '').split('\n').filter(Boolean),
+      setup: (sections[2] || '').split('\n').filter(Boolean),
+      documentation: sections[3] || ''
+    };
   };
 
   const copyToClipboard = async (text: string, section: string) => {
@@ -202,7 +232,7 @@ function CodeBuilder() {
         </div>
 
         {/* Generated Code Display */}
-        {generatedCode && (
+        {(generatedCode || streamedContent) && (
           <div className="bg-gray-800 rounded-lg overflow-hidden">
             <div className="border-b border-gray-700">
               <div className="flex">
@@ -237,7 +267,7 @@ function CodeBuilder() {
               {activeTab === 'code' && (
                 <div className="relative">
                   <button
-                    onClick={() => copyToClipboard(generatedCode.code, 'code')}
+                    onClick={() => copyToClipboard(generatedCode?.code || streamedContent, 'code')}
                     className="absolute top-2 right-2"
                   >
                     {copiedSection === 'code' ? (
@@ -247,12 +277,12 @@ function CodeBuilder() {
                     )}
                   </button>
                   <pre className="text-sm overflow-x-auto p-4 bg-gray-900 rounded">
-                    <code>{generatedCode.code}</code>
+                    <code>{isGenerating ? streamedContent : generatedCode?.code}</code>
                   </pre>
                 </div>
               )}
 
-              {activeTab === 'setup' && (
+              {activeTab === 'setup' && generatedCode && (
                 <div className="space-y-4">
                   <div>
                     <h3 className="font-semibold mb-2">Dependencies</h3>
@@ -273,7 +303,7 @@ function CodeBuilder() {
                 </div>
               )}
 
-              {activeTab === 'docs' && (
+              {activeTab === 'docs' && generatedCode && (
                 <div className="prose prose-invert max-w-none">
                   <div dangerouslySetInnerHTML={{ __html: generatedCode.documentation }} />
                 </div>

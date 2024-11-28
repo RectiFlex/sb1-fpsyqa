@@ -1,20 +1,25 @@
-// api/ai/generate-code.ts
-import OpenAI from 'openai';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { OpenAIStream } from 'ai';
+import { Configuration, OpenAIApi } from 'openai-edge';
+import { NextRequest } from 'next/server';
 
-const openai = new OpenAI({
+// Configure OpenAI
+const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY
 });
+const openai = new OpenAIApi(configuration);
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+// Enable Edge Runtime
+export const runtime = 'edge';
+
+export default async function handler(req: NextRequest) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return new Response('Method not allowed', { status: 405 });
   }
 
   try {
-    const { template, specifications, technology, features } = req.body;
+    const { template, specifications, features } = await req.json();
 
-    const completion = await openai.chat.completions.create({
+    const response = await openai.createChatCompletion({
       model: 'gpt-4-0125-preview',
       messages: [
         {
@@ -25,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         {
           role: 'user',
           content: `Generate code for a ${template} with the following:
-          Tech Stack: ${technology}
+          Tech Stack: ${specifications.techStack.join(', ')}
           Features: ${JSON.stringify(features)}
           Specifications: ${JSON.stringify(specifications)}
           
@@ -37,18 +42,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           5. Testing guidelines`
         }
       ],
+      stream: true,
       temperature: 0.2,
       max_tokens: 4000
     });
 
-    return res.status(200).json({
-      code: completion.choices[0].message.content,
-      template,
-      technology
-    });
-    
-  } catch (error) {
+    // Create a streaming response
+    const stream = OpenAIStream(response);
+    return new Response(stream);
+
+  } catch (error: any) {
     console.error('Code generation error:', error);
-    return res.status(500).json({ error: 'Failed to generate code' });
+    return new Response(
+      JSON.stringify({
+        error: 'Error generating code',
+        details: error.message
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
   }
 }
