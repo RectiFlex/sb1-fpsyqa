@@ -1,4 +1,3 @@
-import { OpenAIStream } from 'ai';
 import { Configuration, OpenAIApi } from 'openai-edge';
 import { NextRequest } from 'next/server';
 
@@ -9,7 +8,9 @@ const configuration = new Configuration({
 const openai = new OpenAIApi(configuration);
 
 // Enable Edge Runtime
-export const runtime = 'edge';
+export const config = {
+  runtime: 'edge'
+};
 
 export default async function handler(req: NextRequest) {
   if (req.method !== 'POST') {
@@ -47,9 +48,13 @@ export default async function handler(req: NextRequest) {
       max_tokens: 4000
     });
 
-    // Create a streaming response
-    const stream = OpenAIStream(response);
-    return new Response(stream);
+    return new Response(response.body, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive'
+      }
+    });
 
   } catch (error: any) {
     console.error('Code generation error:', error);
