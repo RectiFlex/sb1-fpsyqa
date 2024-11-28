@@ -11,13 +11,24 @@ export default defineConfig({
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'state-vendor': ['zustand', 'react-query'],
-          'ui-vendor': ['lucide-react']
+          'ui-vendor': ['lucide-react'],
+          'terminal-vendor': ['xterm', 'xterm-addon-fit']
         }
       }
     }
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'zustand', 'react-query', 'lucide-react']
+    include: [
+      'react', 
+      'react-dom', 
+      'react-router-dom', 
+      'zustand', 
+      'react-query', 
+      'lucide-react',
+      'xterm',
+      'xterm-addon-fit',
+      '@webcontainer/api'
+    ]
   },
   server: {
     port: 3000,

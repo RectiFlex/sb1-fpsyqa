@@ -18,6 +18,8 @@ export function Terminal({ onReady, className = '' }: TerminalProps) {
     // Initialize xterm.js
     const terminal = new XTerm({
       cursorBlink: true,
+      fontSize: 14,
+      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
       theme: {
         background: '#1a1b26',
         foreground: '#a9b1d6',
@@ -47,7 +49,13 @@ export function Terminal({ onReady, className = '' }: TerminalProps) {
 
     // Open terminal in the container
     terminal.open(terminalRef.current);
-    fitAddon.fit();
+    
+    // Initial fit
+    try {
+      fitAddon.fit();
+    } catch (error) {
+      console.warn('Error fitting terminal:', error);
+    }
 
     // Store the terminal instance
     xtermRef.current = terminal;
@@ -59,8 +67,13 @@ export function Terminal({ onReady, className = '' }: TerminalProps) {
 
     // Handle window resize
     const handleResize = () => {
-      fitAddon.fit();
+      try {
+        fitAddon.fit();
+      } catch (error) {
+        console.warn('Error fitting terminal on resize:', error);
+      }
     };
+    
     window.addEventListener('resize', handleResize);
 
     // Cleanup
@@ -74,6 +87,7 @@ export function Terminal({ onReady, className = '' }: TerminalProps) {
     <div 
       ref={terminalRef}
       className={`min-h-[300px] bg-gray-900 rounded-lg overflow-hidden ${className}`}
+      style={{ padding: '0.5rem' }}
     />
   );
 }
