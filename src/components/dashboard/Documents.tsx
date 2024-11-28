@@ -73,7 +73,9 @@ const generateDocument = async (retries = 3) => {
     setIsGenerating(true);
     try {
       console.log('Request Payload:', JSON.stringify(formData)); // Log the request payload
-      const response = await fetch('/api/ai/generate-document', {
+      const response = await fetch('/api/ai/generate-document', { 
+      });
+      console.log('Response Status:', response.status); // Log the response status
       console.log('Response Status:', response.status); // Log the response status
         method: 'POST',
         headers: {
