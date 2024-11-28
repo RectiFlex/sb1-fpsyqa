@@ -29,12 +29,12 @@ export async function installDependencies(terminal: any) {
   const installProcess = await instance.spawn('npm', ['install']);
   
   installProcess.output.pipeTo(
-    new WritableStream({
+    new WritableStream<Uint8Array>({
       write(data) {
-        terminal.write(data);
+        terminal.write(new TextDecoder().decode(data));
       },
     })
-  );
+  ).catch(console.error);
   
   return installProcess.exit;
 }
@@ -43,33 +43,33 @@ export async function startDevServer(terminal: any): Promise<ServerProcess> {
   const instance = await initWebContainer();
   const serverProcess = await instance.spawn('npm', ['run', 'dev']);
   
-  serverProcess.output.pipeTo(
-    new WritableStream({
-      write(data) {
-        terminal.write(data);
-      },
-    })
-  );
+  let resolver: (value: ServerProcess) => void;
+  const promise = new Promise<ServerProcess>((resolve) => {
+    resolver = resolve;
+  });
 
-  // Wait for the dev server URL to appear in the terminal
-  return new Promise<ServerProcess>((resolve) => {
-    let url = '';
-    const checkOutput = new WritableStream({
+  const textDecoder = new TextDecoder();
+  let url = '';
+
+  serverProcess.output.pipeTo(
+    new WritableStream<Uint8Array>({
       write(data) {
-        const output = data.toString();
-        // Look for both localhost and 0.0.0.0
-        const match = output.match(/(?:Local|Network):\s*(http:\/\/(?:localhost|0\.0\.0\.0):\d+)/);
-        if (match && !url) {
-          url = match[1].replace('0.0.0.0', 'localhost');
-          if (url) {
-            resolve({ url, process: serverProcess });
+        const text = textDecoder.decode(data);
+        terminal.write(text);
+        
+        if (!url) {
+          // Look for both localhost and 0.0.0.0
+          const match = text.match(/(?:Local|Network):\s*(http:\/\/(?:localhost|0\.0\.0\.0):\d+)/);
+          if (match) {
+            url = match[1].replace('0.0.0.0', 'localhost');
+            resolver({ url, process: serverProcess });
           }
         }
       },
-    });
+    })
+  ).catch(console.error);
 
-    serverProcess.output.tee()[1].pipeTo(checkOutput);
-  });
+  return promise;
 }
 
 export async function executeCommand(command: string, args: string[], terminal: any) {
@@ -77,12 +77,12 @@ export async function executeCommand(command: string, args: string[], terminal: 
   const process = await instance.spawn(command, args);
   
   process.output.pipeTo(
-    new WritableStream({
+    new WritableStream<Uint8Array>({
       write(data) {
-        terminal.write(data);
+        terminal.write(new TextDecoder().decode(data));
       },
     })
-  );
+  ).catch(console.error);
   
   return process.exit;
 }
@@ -154,7 +154,6 @@ export default defineConfig({
     }
   };
 
-  // Add any additional files from generatedCode
   if (generatedCode.files) {
     for (const [path, content] of Object.entries(generatedCode.files)) {
       const parts = path.split('/');

@@ -29,12 +29,47 @@ export default function Analytics() {
   const [isEditing, setIsEditing] = useState(false);
   const [generations, setGenerations] = useState<Generation[]>([]);
 
-  // Sample data - In production, fetch from API
-  const usageData = [
-    { date: '2024-01', ideas: 12, documents: 8, code: 5 },
-    { date: '2024-02', ideas: 15, documents: 10, code: 7 },
-    { date: '2024-03', ideas: 20, documents: 12, code: 9 }
-  ];
+  const [usageData, setUsageData] = useState<any[]>([]);
+  const [newGeneration, setNewGeneration] = useState<Generation>({
+    id: '',
+    type: 'idea',
+    title: '',
+    timestamp: new Date(),
+    category: ''
+  });
+
+  // Fetch real data from API
+  const fetchUsageData = async () => {
+    try {
+      const response = await fetch('/api/usage-data'); // Adjust the endpoint as necessary
+      const data = await response.json();
+      setUsageData(data);
+    } catch (error) {
+      console.error('Error fetching usage data:', error);
+    }
+  };
+
+  // Fetch data on component mount
+  React.useEffect(() => {
+    fetchUsageData();
+  }, []);
+  
+  // Add a new section for user generations input
+  const handleAddGeneration = (newGeneration: Generation) => {
+    setGenerations((prev) => [...prev, newGeneration]);
+  };
+  
+  const handleSubmitGeneration = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newGeneration: Generation = {
+      id: Date.now().toString(),
+      type: 'idea', // This can be dynamic based on user input
+      title: 'New Generation', // This can be dynamic based on user input
+      timestamp: new Date(),
+      category: 'General' // This can be dynamic based on user input
+    };
+    handleAddGeneration(newGeneration);
+  };
 
   const handleSaveCompanyInfo = () => {
     // In production, save to backend
@@ -126,6 +161,47 @@ export default function Analytics() {
             </ResponsiveContainer>
           </div>
         </div>
+      </div>
+
+      {/* User Generations Input */}
+      <div className="bg-gray-800 rounded-xl p-6">
+        <h3 className="text-xl font-semibold mb-6">Add Generation</h3>
+        <form onSubmit={handleSubmitGeneration} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-400">Type</label>
+              <select
+                onChange={(e) => setNewGeneration((prev) => ({ ...prev, type: e.target.value as 'idea' | 'document' | 'code' }))}
+                className="w-full bg-gray-700 rounded-lg px-4 py-2"
+              >
+                <option value="idea">Idea</option>
+                <option value="document">Document</option>
+                <option value="code">Code</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-400">Title</label>
+              <input
+                type="text"
+                onChange={(e) => setNewGeneration((prev) => ({ ...prev, title: e.target.value }))}
+                className="w-full bg-gray-700 rounded-lg px-4 py-2"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-400">Category</label>
+              <input
+                type="text"
+                onChange={(e) => setNewGeneration((prev) => ({ ...prev, category: e.target.value }))}
+                className="w-full bg-gray-700 rounded-lg px-4 py-2"
+                required
+              />
+            </div>
+          </div>
+          <button type="submit" className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700">
+            Add Generation
+          </button>
+        </form>
       </div>
 
       {/* Generation History */}
