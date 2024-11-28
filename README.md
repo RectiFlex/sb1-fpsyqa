@@ -1,4 +1,3 @@
-Here’s a **README** template tailored for an AI co-founder project on GitHub:  
 
 ---
 
