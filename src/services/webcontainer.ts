@@ -67,6 +67,19 @@ export async function startDevServer(terminal: any): Promise<ServerProcess> {
   });
 }
 
+// In src/services/webcontainer.ts
+export async function initWebContainer() {
+  try {
+    if (!webcontainerInstance) {
+      webcontainerInstance = await WebContainer.boot();
+    }
+    return webcontainerInstance;
+  } catch (error) {
+    console.error('WebContainer initialization failed:', error);
+    throw new Error('WebContainer initialization failed. Please ensure your browser supports the required features.');
+  }
+}
+
 export async function executeCommand(command: string, args: string[], terminal: any) {
   const instance = await initWebContainer();
   const process = await instance.spawn(command, args);

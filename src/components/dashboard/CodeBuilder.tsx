@@ -172,7 +172,15 @@ function CodeBuilder() {
     terminalRef.current = terminal;
     terminal.write('\x1b[33mTerminal ready. Click "Run Code" to start the application.\x1b[0m\r\n');
   };
-
+  const handleRunCode = async () => {
+    try {
+      await initWebContainer();
+      // ... rest of the code
+    } catch (error) {
+      setPreviewError('Code preview is not available in this environment. Please ensure you are using a supported browser and configuration.');
+      console.error('Failed to initialize WebContainer:', error);
+    }
+  };
   const runCode = async () => {
     if (!generatedCode || !terminalRef.current) return;
     
