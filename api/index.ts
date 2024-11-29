@@ -4,10 +4,17 @@ import cors from 'cors';
 import { hash, compare } from 'bcryptjs';
 import { body, validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+// Rate limiter: maximum of 100 requests per 15 minutes
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+});
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -246,7 +253,7 @@ app.post('/api/documents',
     }
 });
 
-app.get('/api/documents', authenticate, async (req, res) => {
+app.get('/api/documents', limiter, authenticate, async (req, res) => {
   const userId = req.user.userId;
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
@@ -273,6 +280,7 @@ app.get('/api/documents', authenticate, async (req, res) => {
 });
 
 app.put('/api/documents/:id', 
+  limiter,
   authenticate,
   body('type').notEmpty(),
   body('title').notEmpty(),
@@ -304,7 +312,7 @@ app.put('/api/documents/:id',
     }
 });
 
-app.delete('/api/documents/:id', authenticate, async (req, res) => {
+app.delete('/api/documents/:id', limiter, authenticate, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.userId;
 
