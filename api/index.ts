@@ -208,7 +208,7 @@ app.put('/api/ideas/:id',
     }
 });
 
-app.delete('/api/ideas/:id', authenticate, async (req, res) => {
+app.delete('/api/ideas/:id', limiter, authenticate, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.userId;
 
