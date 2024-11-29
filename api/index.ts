@@ -230,6 +230,7 @@ app.delete('/api/ideas/:id', limiter, authenticate, async (req, res) => {
 
 // Documents endpoints
 app.post('/api/documents', 
+  limiter,
   authenticate,
   body('type').notEmpty(),
   body('title').notEmpty(),
