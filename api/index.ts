@@ -118,6 +118,7 @@ app.post('/api/auth/login',
 
 // Ideas endpoints
 app.post('/api/ideas', 
+  limiter,
   authenticate,
   body('title').notEmpty(),
   body('description').notEmpty(),
@@ -145,7 +146,7 @@ app.post('/api/ideas',
     }
 });
 
-app.get('/api/ideas', authenticate, async (req, res) => {
+app.get('/api/ideas', limiter, authenticate, async (req, res) => {
   const userId = req.user.userId;
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
@@ -172,6 +173,7 @@ app.get('/api/ideas', authenticate, async (req, res) => {
 });
 
 app.put('/api/ideas/:id', 
+  limiter,
   authenticate,
   body('title').notEmpty(),
   body('description').notEmpty(),
